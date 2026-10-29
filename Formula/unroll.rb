@@ -3,8 +3,8 @@
 class Unroll < Formula
   desc "Copy only new iPhone photos to a folder, optionally referenced in Apple Photos"
   homepage "https://github.com/carl-castell/unroll"
-  url "https://github.com/carl-castell/unroll/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "8f17c6611fa8e8571b3886bd64c42e6973bd8516636a7acc2ff00b25062975f5"
+  url "https://github.com/carl-castell/unroll/archive/refs/tags/v0.2.0.tar.gz"
+  sha256 "ca1728995c777df77c6de4cad9301a4ca08e641a3449b88de536885a083a3403"
   license "MIT"
   head "https://github.com/carl-castell/unroll.git", branch: "main"
 
@@ -12,10 +12,35 @@ class Unroll < Formula
   depends_on macos: :sonoma
 
   def install
+    check_swift_version
     system "swift", "build", "--disable-sandbox", "--configuration", "release", "--product", "unroll"
     bin.install ".build/release/unroll"
     man1.install "docs/unroll.1"
     generate_completions_from_executable(bin/"unroll", "--generate-completion-script")
+  end
+
+  # Homebrew doesn't check the Command Line Tools version, and with an older Swift the build
+  # fails with a cryptic package error. Stop early with a message that says what to do.
+  def check_swift_version
+    output = Utils.popen_read("swift", "--version", err: :out)
+    major = output[/Swift version (\d+)\./, 1].to_i
+    return if major >= 6
+
+    found = output[/Swift version [\d.]+/] || "no Swift"
+    odie <<~EOS
+      unroll needs Swift 6 to build, which comes with the Xcode Command Line Tools 16
+      or Xcode 16 or later. This Mac has #{found}.
+
+      To update the Command Line Tools, open System Settings → General → Software Update,
+      or run:
+        softwareupdate --list
+        softwareupdate --install "<the Command Line Tools item listed>"
+
+      If they aren't installed at all, run:
+        xcode-select --install
+
+      Then run `brew install unroll` again.
+    EOS
   end
 
   test do
